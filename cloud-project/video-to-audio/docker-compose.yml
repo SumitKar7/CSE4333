@@ -1,0 +1,132 @@
+services:
+  # Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: video-rabbitmq
+    ports:
+      - "5672:5672"      # AMQP port
+      - "15672:15672"    # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB - Metadata storage
+  mongodb:
+    image: mongo:7
+    container_name: video-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: video_converter
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL - Structured data and logging
+  postgres:
+    image: postgres:15
+    container_name: video-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: videodb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Upload Service
+  upload-service:
+    build:
+      context: ./services/upload_service
+      dockerfile: Dockerfile
+    container_name: video-upload-service
+    ports:
+      - "8000:8000"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      RABBITMQ_QUEUE: video_conversion_queue
+      MONGODB_URI: mongodb+srv://sumit123:sumit123@cluster0.3888tk2.mongodb.net/
+      MONGODB_DB: video_converter
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: videodb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      UPLOAD_DIR: /tmp/uploads
+    volumes:
+      - ./uploads:/tmp/uploads
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # Converter Worker Service
+  converter-service:
+    build:
+      context: .
+      dockerfile: ./services/converter_service/Dockerfile
+    container_name: video-converter-service
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      RABBITMQ_QUEUE: video_conversion_queue
+      MONGODB_URI: mongodb+srv://sumit123:sumit123@cluster0.3888tk2.mongodb.net/
+      MONGODB_DB: video_converter
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: videodb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      OUTPUT_DIR: /tmp/outputs
+    volumes:
+      - ./uploads:/tmp/uploads:ro
+      - ./outputs:/tmp/outputs
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # Storage Service
+  storage-service:
+    build:
+      context: ./services/storage_service
+      dockerfile: Dockerfile
+    container_name: video-storage-service
+    ports:
+      - "8001:8001"
+    environment:
+      MONGODB_URI: mongodb+srv://sumit123:sumit123@cluster0.3888tk2.mongodb.net/
+      MONGODB_DB: video_converter
+      OUTPUT_DIR: /tmp/outputs
+    volumes:
+      - ./outputs:/tmp/outputs:ro
+
+volumes:
+  rabbitmq_data:
+  mongodb_data:
+  postgres_data:
+

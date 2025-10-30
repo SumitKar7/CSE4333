@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video to Audio Converter</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 800px;
+      width: 100%;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .header p {
+      opacity: 0.95;
+      font-size: 1rem;
+    }
+
+    .content {
+      padding: 2rem;
+    }
+
+    .upload-area {
+      border: 3px dashed #d1d5db;
+      border-radius: 12px;
+      padding: 3rem 2rem;
+      text-align: center;
+      transition: all 0.3s ease;
+      background: #f9fafb;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .upload-area:hover {
+      border-color: #667eea;
+      background: #f3f4f6;
+    }
+
+    .upload-area.dragover {
+      border-color: #667eea;
+      background: #ede9fe;
+      transform: scale(1.02);
+    }
+
+    .upload-area.has-file {
+      border-color: #10b981;
+      background: #ecfdf5;
+    }
+
+    .upload-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .upload-area p {
+      color: #6b7280;
+      margin: 0.5rem 0;
+      font-size: 1rem;
+    }
+
+    .upload-area strong {
+      color: #667eea;
+      font-weight: 600;
+    }
+
+    #file {
+      display: none;
+    }
+
+    .file-info {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      display: none;
+    }
+
+    .file-info.show {
+      display: block;
+      animation: slideDown 0.3s ease;
+    }
+
+    .file-name {
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 0.25rem;
+    }
+
+    .file-size {
+      color: #6b7280;
+      font-size: 0.875rem;
+    }
+
+    .button-group {
+      margin-top: 1.5rem;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 0.875rem 2rem;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .status-card {
+      margin-top: 1.5rem;
+      padding: 1.5rem;
+      border-radius: 12px;
+      display: none;
+      animation: slideDown 0.3s ease;
+    }
+
+    .status-card.show {
+      display: block;
+    }
+
+    .status-card.queued {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+    }
+
+    .status-card.processing {
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      color: #92400e;
+    }
+
+    .status-card.completed {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #065f46;
+    }
+
+    .status-card.failed {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+    }
+
+    .status-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+
+    .status-icon {
+      font-size: 1.5rem;
+    }
+
+    .status-details {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .status-details div {
+      margin: 0.5rem 0;
+      font-size: 0.9rem;
+    }
+
+    .status-label {
+      font-weight: 600;
+      display: inline-block;
+      min-width: 100px;
+    }
+
+    .download-btn {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      padding: 0.875rem 2rem;
+      border-radius: 10px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+    }
+
+    .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+    }
+
+    .job-id {
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 0.85rem;
+      background: rgba(0, 0, 0, 0.05);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      word-break: break-all;
+    }
+
+    .error-message {
+      color: #dc2626;
+      margin-top: 0.5rem;
+      padding: 0.75rem;
+      background: rgba(220, 38, 38, 0.1);
+      border-radius: 6px;
+      border-left: 3px solid #dc2626;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 1rem;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      border-radius: 3px;
+      transition: width 0.3s ease;
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -1000px 0; }
+      100% { background-position: 1000px 0; }
+    }
+
+    @media (max-width: 640px) {
+      .header h1 {
+        font-size: 1.5rem;
+      }
+      
+      .content {
+        padding: 1.5rem;
+      }
+      
+      .upload-area {
+        padding: 2rem 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>
+        <span>🎬</span>
+        Video to Audio Converter
+      </h1>
+      <p>Transform your video files into MP3 audio files instantly</p>
+    </div>
+    
+    <div class="content">
+      <form id="uploadForm">
+        <div class="upload-area" id="uploadArea">
+          <span class="upload-icon">📁</span>
+          <p><strong>Click to upload</strong> or drag and drop</p>
+          <p>Video files (MP4, AVI, MOV, etc.)</p>
+          <input type="file" id="file" name="file" accept="video/*" required />
+        </div>
+
+        <div class="file-info" id="fileInfo">
+          <div class="file-name" id="fileName"></div>
+          <div class="file-size" id="fileSize"></div>
+        </div>
+
+        <div class="button-group">
+          <button type="submit" id="uploadBtn">
+            <span>🚀</span>
+            <span id="buttonText">Upload & Convert</span>
+            <span class="spinner" id="spinner" style="display: none;"></span>
+          </button>
+          <span id="uploadHint" style="color: #6b7280; font-size: 0.9rem;"></span>
+        </div>
+      </form>
+
+      <div class="status-card" id="statusCard">
+        <div class="status-header">
+          <span class="status-icon" id="statusIcon"></span>
+          <span id="statusTitle">Processing...</span>
+        </div>
+        <div id="statusMessage"></div>
+        <div class="status-details" id="statusDetails" style="display: none;">
+          <div>
+            <span class="status-label">Job ID:</span>
+            <span class="job-id" id="jobId"></span>
+          </div>
+          <div>
+            <span class="status-label">Original File:</span>
+            <span id="originalFile"></span>
+          </div>
+          <div>
+            <span class="status-label">Status:</span>
+            <span id="statusText"></span>
+          </div>
+        </div>
+        <div class="progress-bar" id="progressBar" style="display: none;">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('uploadForm');
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('file');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const buttonText = document.getElementById('buttonText');
+    const spinner = document.getElementById('spinner');
+    const hint = document.getElementById('uploadHint');
+    const statusCard = document.getElementById('statusCard');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusMessage = document.getElementById('statusMessage');
+    const statusDetails = document.getElementById('statusDetails');
+    const jobIdEl = document.getElementById('jobId');
+    const originalFileEl = document.getElementById('originalFile');
+    const statusText = document.getElementById('statusText');
+    const progressBar = document.getElementById('progressBar');
+    const progressFill = document.getElementById('progressFill');
+
+    let currentJobId = null;
+    let pollInterval = null;
+
+    // Format file size
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    // Update file info
+    function updateFileInfo(file) {
+      if (file) {
+        fileName.textContent = file.name;
+        fileSize.textContent = formatFileSize(file.size);
+        fileInfo.classList.add('show');
+        uploadArea.classList.add('has-file');
+      } else {
+        fileInfo.classList.remove('show');
+        uploadArea.classList.remove('has-file');
+      }
+    }
+
+    // Upload area click
+    uploadArea.addEventListener('click', () => fileInput.click());
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+      updateFileInfo(e.target.files[0]);
+    });
+
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('video/')) {
+        fileInput.files = e.dataTransfer.files;
+        updateFileInfo(file);
+      } else {
+        alert('Please drop a video file');
+      }
+    });
+
+    // Update status card
+    function updateStatus(status, message, details = {}) {
+      statusCard.classList.remove('queued', 'processing', 'completed', 'failed');
+      statusCard.classList.add(status, 'show');
+
+      const statusConfig = {
+        queued: { icon: '⏳', title: 'Queued', message: 'Your video is in the queue...' },
+        processing: { icon: '⚙️', title: 'Processing', message: 'Converting video to audio...' },
+        completed: { icon: '✅', title: 'Completed!', message: 'Your audio file is ready!' },
+        failed: { icon: '❌', title: 'Failed', message: 'Conversion failed' }
+      };
+
+      const config = statusConfig[status] || statusConfig.queued;
+      statusIcon.textContent = config.icon;
+      statusTitle.textContent = config.title;
+      statusMessage.textContent = message || config.message;
+
+      if (details.jobId) {
+        jobIdEl.textContent = details.jobId;
+        currentJobId = details.jobId;
+      }
+      if (details.originalFile) {
+        originalFileEl.textContent = details.originalFile;
+      }
+      if (details.status) {
+        statusText.textContent = details.status;
+      }
+
+      if (status === 'processing' || status === 'queued') {
+        progressBar.style.display = 'block';
+        progressFill.style.width = status === 'queued' ? '30%' : '60%';
+      } else {
+        progressBar.style.display = 'none';
+      }
+
+      if (status === 'completed' && currentJobId) {
+        statusDetails.style.display = 'block';
+        const downloadLink = document.createElement('a');
+        downloadLink.href = `http://localhost:8001/download/${currentJobId}`;
+        downloadLink.className = 'download-btn';
+        downloadLink.textContent = '⬇️ Download MP3';
+        downloadLink.setAttribute('download', `${currentJobId}.mp3`);
+        downloadLink.target = '_blank';
+        
+        // Remove existing download button if any
+        const existingBtn = statusCard.querySelector('.download-btn');
+        if (existingBtn) existingBtn.remove();
+        
+        statusCard.appendChild(downloadLink);
+        progressFill.style.width = '100%';
+      }
+
+      if (status === 'failed' && details.error) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = `Error: ${details.error}`;
+        
+        const existingError = statusCard.querySelector('.error-message');
+        if (existingError) existingError.remove();
+        
+        statusCard.appendChild(errorDiv);
+      }
+    }
+
+    // Poll job status
+    function pollStatus(jobId) {
+      updateStatus('queued', 'Your video is queued for processing...', { jobId, status: 'queued' });
+      
+      let attempts = 0;
+      pollInterval = setInterval(async () => {
+        attempts++;
+        try {
+          const res = await fetch(`/job/${jobId}`);
+          if (!res.ok) throw new Error('Status check failed');
+          const data = await res.json();
+
+          if (data.status === 'queued') {
+            updateStatus('queued', 'Waiting in queue...', { jobId, originalFile: data.original_filename, status: 'queued' });
+          } else if (data.status === 'processing') {
+            updateStatus('processing', 'Converting your video to audio...', { jobId, originalFile: data.original_filename, status: 'processing' });
+          } else if (data.status === 'completed') {
+            clearInterval(pollInterval);
+            updateStatus('completed', 'Conversion completed successfully!', { 
+              jobId, 
+              originalFile: data.original_filename, 
+              status: 'completed',
+              audioPath: data.audio_file_path
+            });
+          } else if (data.status === 'failed') {
+            clearInterval(pollInterval);
+            updateStatus('failed', 'The conversion process failed.', { 
+              jobId, 
+              originalFile: data.original_filename, 
+              status: 'failed',
+              error: data.error || 'Unknown error'
+            });
+          }
+        } catch (e) {
+          console.error('Poll error:', e);
+        }
+
+        if (attempts > 180) { // ~6 minutes
+          clearInterval(pollInterval);
+          updateStatus('failed', 'Status check timeout. Please try again.', { error: 'Request timeout' });
+        }
+      }, 2000);
+    }
+
+    // Form submit
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      if (!fileInput.files.length) {
+        alert('Please select a video file first');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('user_id', 'web-user');
+
+      // Update UI
+      uploadBtn.disabled = true;
+      buttonText.textContent = 'Uploading...';
+      spinner.style.display = 'inline-block';
+      hint.textContent = '';
+      statusCard.classList.remove('show');
+
+      try {
+        const res = await fetch('/upload', { method: 'POST', body: formData });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || `Upload failed (${res.status})`);
+        }
+
+        const data = await res.json();
+        hint.textContent = '✓ Upload successful!';
+        
+        // Start polling
+        pollStatus(data.job_id);
+        
+      } catch (err) {
+        updateStatus('failed', 'Upload failed', { error: err.message });
+      } finally {
+        uploadBtn.disabled = false;
+        buttonText.textContent = 'Upload & Convert';
+        spinner.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
